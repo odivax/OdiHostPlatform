@@ -3,13 +3,23 @@ class Database {
     private $pdo;
     
     public function __construct() {
-        $host = getenv('PGHOST');
-        $port = getenv('PGPORT');
-        $dbname = getenv('PGDATABASE');
-        $username = getenv('PGUSER');
-        $password = getenv('PGPASSWORD');
-        
-        $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+        // Try PostgreSQL first (for Replit), then MySQL (for shared hosting)
+        if (getenv('PGHOST')) {
+            // PostgreSQL connection for Replit
+            $host = getenv('PGHOST');
+            $port = getenv('PGPORT');
+            $dbname = getenv('PGDATABASE');
+            $username = getenv('PGUSER');
+            $password = getenv('PGPASSWORD');
+            $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
+        } else {
+            // MySQL connection for shared hosting
+            $host = defined('DB_HOST') ? DB_HOST : 'localhost';
+            $dbname = defined('DB_NAME') ? DB_NAME : 'odihost_db';
+            $username = defined('DB_USER') ? DB_USER : 'root';
+            $password = defined('DB_PASS') ? DB_PASS : '';
+            $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
+        }
         
         try {
             $this->pdo = new PDO($dsn, $username, $password, [
@@ -92,12 +102,22 @@ class Database {
     }
     
     public function saveFile($projectId, $filename, $content, $fileType = 'text') {
-        $stmt = $this->pdo->prepare("
-            INSERT INTO project_files (project_id, filename, content, file_type, updated_at) 
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT (project_id, filename) 
-            DO UPDATE SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP
-        ");
+        if (getenv('PGHOST')) {
+            // PostgreSQL syntax
+            $stmt = $this->pdo->prepare("
+                INSERT INTO project_files (project_id, filename, content, file_type, updated_at) 
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT (project_id, filename) 
+                DO UPDATE SET content = EXCLUDED.content, updated_at = CURRENT_TIMESTAMP
+            ");
+        } else {
+            // MySQL syntax
+            $stmt = $this->pdo->prepare("
+                INSERT INTO project_files (project_id, filename, content, file_type, updated_at) 
+                VALUES (?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE content = VALUES(content), updated_at = NOW()
+            ");
+        }
         return $stmt->execute([$projectId, $filename, $content, $fileType]);
     }
     

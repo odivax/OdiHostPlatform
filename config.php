@@ -4,6 +4,12 @@ define('APP_NAME', 'OdiHost');
 define('APP_URL', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://' . $_SERVER['HTTP_HOST']);
 define('USERS_DIR', __DIR__ . '/users');
 
+// Database Configuration (for shared hosting - uncomment and modify these)
+// define('DB_HOST', 'localhost');
+// define('DB_NAME', 'your_database_name');
+// define('DB_USER', 'your_database_user');
+// define('DB_PASS', 'your_database_password');
+
 // Google OAuth Configuration
 define('GOOGLE_CLIENT_ID', getenv('GOOGLE_CLIENT_ID') ?: 'your-google-client-id');
 define('GOOGLE_CLIENT_SECRET', getenv('GOOGLE_CLIENT_SECRET') ?: 'your-google-client-secret');
