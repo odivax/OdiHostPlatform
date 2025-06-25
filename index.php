@@ -91,24 +91,10 @@ function serveProject($username, $projectName, $path) {
 }
 
 function checkCustomDomain($host) {
-    $usersDir = USERS_DIR;
-    if (!is_dir($usersDir)) return false;
-    
-    $users = scandir($usersDir);
-    foreach ($users as $user) {
-        if ($user === '.' || $user === '..') continue;
-        
-        $metadataFile = $usersDir . '/' . $user . '/metadata.json';
-        if (file_exists($metadataFile)) {
-            $metadata = json_decode(file_get_contents($metadataFile), true);
-            if (isset($metadata['projects'])) {
-                foreach ($metadata['projects'] as $project) {
-                    if (isset($project['custom_domain']) && $project['custom_domain'] === $host) {
-                        return ['username' => $user, 'project' => $project['slug']];
-                    }
-                }
-            }
-        }
+    require_once 'functions.php';
+    $result = getDB()->getProjectByDomain($host);
+    if ($result) {
+        return ['username' => $result['username'], 'project' => $result['slug']];
     }
     return false;
 }

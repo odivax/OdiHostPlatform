@@ -64,24 +64,14 @@ switch ($method) {
             exit;
         }
         
-        $metadata = getUserMetadata($username);
-        if (!$metadata) {
+        $user = getDB()->getUserByUsername($username);
+        if (!$user) {
             http_response_code(404);
             echo json_encode(['error' => 'User not found']);
             exit;
         }
         
-        // Update project in metadata
-        $updated = false;
-        for ($i = 0; $i < count($metadata['projects']); $i++) {
-            if ($metadata['projects'][$i]['slug'] === $slug) {
-                $metadata['projects'][$i]['custom_domain'] = $customDomain;
-                $updated = true;
-                break;
-            }
-        }
-        
-        if ($updated && updateUserMetadata($username, $metadata)) {
+        if (getDB()->updateProjectDomain($user['id'], $slug, $customDomain)) {
             echo json_encode(['success' => true]);
         } else {
             http_response_code(500);

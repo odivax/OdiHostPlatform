@@ -11,21 +11,29 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $username = $_SESSION['username'];
-$project = $_GET['project'] ?? '';
+$projectSlug = $_GET['project'] ?? '';
 
-if (empty($project)) {
+if (empty($projectSlug)) {
     http_response_code(400);
     echo json_encode(['error' => 'Project is required']);
     exit;
 }
 
-$projectDir = USERS_DIR . '/' . $username . '/' . $project;
+$user = getDB()->getUserByUsername($username);
+if (!$user) {
+    http_response_code(404);
+    echo json_encode(['error' => 'User not found']);
+    exit;
+}
 
-if (!is_dir($projectDir)) {
+$project = getDB()->getProject($user['id'], $projectSlug);
+if (!$project) {
     http_response_code(404);
     echo json_encode(['error' => 'Project not found']);
     exit;
 }
+
+$projectDir = USERS_DIR . '/' . $username . '/' . $projectSlug;
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -51,16 +59,22 @@ switch ($method) {
             }
             echo json_encode(['files' => $files]);
         } else {
-            // Get file content
-            $filePath = $projectDir . '/' . $file;
-            if (!file_exists($filePath) || !is_file($filePath)) {
-                http_response_code(404);
-                echo json_encode(['error' => 'File not found']);
-                exit;
+            // Get file content from database first, fallback to filesystem
+            $fileData = getDB()->getFile($project['id'], $file);
+            if ($fileData) {
+                echo json_encode(['content' => $fileData['content']]);
+            } else {
+                // Fallback to filesystem
+                $filePath = $projectDir . '/' . $file;
+                if (!file_exists($filePath) || !is_file($filePath)) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'File not found']);
+                    exit;
+                }
+                
+                $content = file_get_contents($filePath);
+                echo json_encode(['content' => $content]);
             }
-            
-            $content = file_get_contents($filePath);
-            echo json_encode(['content' => $content]);
         }
         break;
         
@@ -116,8 +130,12 @@ switch ($method) {
                 exit;
             }
             
+            // Save to both database and filesystem
             $filePath = $projectDir . '/' . $file;
-            if (file_put_contents($filePath, $content) !== false) {
+            $fileType = pathinfo($file, PATHINFO_EXTENSION);
+            
+            if (file_put_contents($filePath, $content) !== false && 
+                getDB()->saveFile($project['id'], $file, $content, $fileType)) {
                 echo json_encode(['success' => true]);
             } else {
                 http_response_code(500);

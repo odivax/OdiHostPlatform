@@ -9,7 +9,7 @@ OdiHost is a web hosting platform that allows users to create and host simple we
 ### Backend Architecture
 - **Language**: PHP (no frameworks)
 - **Authentication**: Google OAuth 2.0
-- **Data Storage**: File-based system using JSON metadata
+- **Data Storage**: PostgreSQL database with file-based project storage
 - **Web Server**: Built-in PHP development server (php -S)
 - **Session Management**: PHP sessions with security headers
 
@@ -115,7 +115,8 @@ OdiHost is a web hosting platform that allows users to create and host simple we
 
 ```
 Changelog:
-- June 25, 2025. Initial setup
+- June 25, 2025. Initial setup with JSON-based storage
+- June 25, 2025. Migrated to PostgreSQL database for improved data management
 ```
 
 ## User Preferences

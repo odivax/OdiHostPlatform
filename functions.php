@@ -1,4 +1,14 @@
 <?php
+require_once 'database.php';
+
+function getDB() {
+    static $db = null;
+    if ($db === null) {
+        $db = new Database();
+    }
+    return $db;
+}
+
 function sanitizeUsername($username) {
     // Remove non-alphanumeric characters except dots and hyphens
     $username = preg_replace('/[^a-zA-Z0-9.-]/', '', $username);
@@ -9,8 +19,7 @@ function sanitizeUsername($username) {
 }
 
 function isUsernameAvailable($username) {
-    $userDir = USERS_DIR . '/' . $username;
-    return !is_dir($userDir);
+    return getDB()->isUsernameAvailable($username);
 }
 
 function suggestUsername($baseUsername) {
@@ -37,53 +46,31 @@ function suggestUsername($baseUsername) {
 function createUser($googleId, $name, $email, $picture, $username) {
     $userDir = USERS_DIR . '/' . $username;
     
-    if (!mkdir($userDir, 0755, true)) {
+    // Still create directory for file storage
+    if (!is_dir($userDir) && !mkdir($userDir, 0755, true)) {
         return false;
     }
     
-    $metadata = [
-        'username' => $username,
-        'google_id' => $googleId,
-        'name' => $name,
-        'email' => $email,
-        'picture' => $picture,
-        'created_at' => date('Y-m-d H:i:s'),
-        'projects' => []
-    ];
-    
-    $metadataFile = $userDir . '/metadata.json';
-    return file_put_contents($metadataFile, json_encode($metadata, JSON_PRETTY_PRINT));
+    return getDB()->createUser($googleId, $name, $email, $picture, $username);
 }
 
 function getUserByGoogleId($googleId) {
-    $usersDir = USERS_DIR;
-    if (!is_dir($usersDir)) return false;
-    
-    $users = scandir($usersDir);
-    foreach ($users as $user) {
-        if ($user === '.' || $user === '..') continue;
-        
-        $metadataFile = $usersDir . '/' . $user . '/metadata.json';
-        if (file_exists($metadataFile)) {
-            $metadata = json_decode(file_get_contents($metadataFile), true);
-            if ($metadata['google_id'] === $googleId) {
-                return $metadata;
-            }
-        }
-    }
-    return false;
+    return getDB()->getUserByGoogleId($googleId);
 }
 
 function getUserMetadata($username) {
-    $metadataFile = USERS_DIR . '/' . $username . '/metadata.json';
-    if (!file_exists($metadataFile)) return false;
+    $user = getDB()->getUserByUsername($username);
+    if (!$user) return false;
     
-    return json_decode(file_get_contents($metadataFile), true);
+    $projects = getDB()->getUserProjects($user['id']);
+    $user['projects'] = $projects;
+    
+    return $user;
 }
 
 function updateUserMetadata($username, $metadata) {
-    $metadataFile = USERS_DIR . '/' . $username . '/metadata.json';
-    return file_put_contents($metadataFile, json_encode($metadata, JSON_PRETTY_PRINT));
+    // This function is now handled by individual database operations
+    return true;
 }
 
 function generateProjectSlug($name) {
@@ -94,15 +81,15 @@ function generateProjectSlug($name) {
 }
 
 function createProject($username, $projectName) {
-    $metadata = getUserMetadata($username);
-    if (!$metadata) return false;
+    $user = getDB()->getUserByUsername($username);
+    if (!$user) return false;
     
     $slug = generateProjectSlug($projectName);
     
     // Ensure unique slug
     $originalSlug = $slug;
     $counter = 1;
-    while (projectExists($username, $slug)) {
+    while (getDB()->projectExists($user['id'], $slug)) {
         $slug = $originalSlug . '-' . $counter;
         $counter++;
     }
@@ -111,6 +98,15 @@ function createProject($username, $projectName) {
     if (!mkdir($projectDir, 0755, true)) {
         return false;
     }
+    
+    // Create project in database
+    if (!getDB()->createProject($user['id'], $projectName, $slug)) {
+        return false;
+    }
+    
+    // Get project ID
+    $project = getDB()->getProject($user['id'], $slug);
+    if (!$project) return false;
     
     // Create default files
     $defaultHtml = '<!DOCTYPE html>
@@ -149,44 +145,28 @@ p {
     $defaultJs = '// Add your JavaScript here
 console.log("Welcome to ' . $projectName . '!");';
     
+    // Save files to both filesystem and database
     file_put_contents($projectDir . '/index.html', $defaultHtml);
     file_put_contents($projectDir . '/style.css', $defaultCss);
     file_put_contents($projectDir . '/script.js', $defaultJs);
     
-    // Update metadata
-    $project = [
-        'name' => $projectName,
-        'slug' => $slug,
-        'created_at' => date('Y-m-d H:i:s'),
-        'custom_domain' => ''
-    ];
-    
-    $metadata['projects'][] = $project;
-    updateUserMetadata($username, $metadata);
+    getDB()->saveFile($project['id'], 'index.html', $defaultHtml, 'html');
+    getDB()->saveFile($project['id'], 'style.css', $defaultCss, 'css');
+    getDB()->saveFile($project['id'], 'script.js', $defaultJs, 'javascript');
     
     return $slug;
 }
 
 function projectExists($username, $slug) {
-    $metadata = getUserMetadata($username);
-    if (!$metadata) return false;
+    $user = getDB()->getUserByUsername($username);
+    if (!$user) return false;
     
-    foreach ($metadata['projects'] as $project) {
-        if ($project['slug'] === $slug) {
-            return true;
-        }
-    }
-    return false;
+    return getDB()->projectExists($user['id'], $slug);
 }
 
 function deleteProject($username, $slug) {
-    $metadata = getUserMetadata($username);
-    if (!$metadata) return false;
-    
-    // Remove from metadata
-    $metadata['projects'] = array_filter($metadata['projects'], function($project) use ($slug) {
-        return $project['slug'] !== $slug;
-    });
+    $user = getDB()->getUserByUsername($username);
+    if (!$user) return false;
     
     // Remove directory
     $projectDir = USERS_DIR . '/' . $username . '/' . $slug;
@@ -194,7 +174,7 @@ function deleteProject($username, $slug) {
         removeDirectory($projectDir);
     }
     
-    return updateUserMetadata($username, $metadata);
+    return getDB()->deleteProject($user['id'], $slug);
 }
 
 function removeDirectory($dir) {
