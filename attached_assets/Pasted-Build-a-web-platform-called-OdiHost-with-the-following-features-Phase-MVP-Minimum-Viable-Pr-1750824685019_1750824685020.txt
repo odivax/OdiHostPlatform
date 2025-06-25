@@ -1,0 +1,94 @@
+Build a web platform called OdiHost with the following features:
+
+🧩 Phase: MVP (Minimum Viable Product)
+🛠 Tech Stack: HTML, CSS, JavaScript (Monaco Editor), PHP (no frameworks), optional JSON file-based storage (instead of MySQL)
+
+🎯 Core Features:
+
+Google OAuth Login (using PHP & Google OAuth API)
+
+Only allow login via Google account
+
+After login, store the user's Google ID, name, profile picture, and ask to choose a unique username
+
+Two-Step Username Validation
+
+After login, ask user to pick a username
+
+Check if it’s available by looking up existing folders in /users/
+
+If taken, suggest alternatives (e.g. username123, username.dev)
+
+Wildcard Subdomain Routing
+
+On shared hosting with wildcard DNS (*.odivax.com)
+
+Detect subdomain via PHP ($_SERVER['HTTP_HOST'])
+
+Load /users/{username}/{project}/index.html based on the subdomain and project name
+
+User Dashboard (host.odivex.com/dashboard.php)
+
+After login, show user dashboard
+
+Allow user to:
+
+Create new project
+
+View, Edit, Delete existing projects
+
+Monaco Editor Integration
+
+Editor with 3 tabs: index.html, style.css, script.js
+
+Save project files to /users/{username}/{projectname}/ folder
+
+Live Preview via iframe (reloads on save)
+
+Supported file types:
+
+.html, .css, .js
+
+image uploads: .png, .jpg, .svg
+
+Store project metadata in JSON file
+
+Path: /users/{username}/metadata.json
+
+Structure includes username, list of projects with name, slug, created_at, custom_domain (optional)
+
+Optional: Custom Domain Binding
+
+User can enter their own domain (e.g. mysite.com)
+
+Show DNS A record instructions
+
+Store custom domain in metadata.json
+
+On page load, PHP matches $_SERVER['HTTP_HOST'] with custom domain and serves the mapped project
+
+Output required:
+
+All PHP and HTML files
+
+Monaco Editor integration
+
+JSON file read/write logic
+
+Folder structure for users and projects
+
+Subdomain-based router (index.php)
+
+Google login page and callback handler
+
+💡 Constraints:
+
+No database (JSON only)
+
+Code must work on shared hosting (CPanel)
+
+Clean, responsive HTML/CSS UI
+
+Follow security best practices for uploads and file access
+
+Start by building
